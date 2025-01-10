@@ -185,9 +185,6 @@ void StackingContext::paint_descendants(PaintContext& context, Paintable const& 
 
 void StackingContext::paint_child(PaintContext& context, StackingContext const& child)
 {
-    VERIFY(!child.paintable_box().layout_node().is_svg_box());
-    VERIFY(!child.paintable_box().layout_node().is_svg_svg_box());
-
     const_cast<StackingContext&>(child).set_last_paint_generation_id(context.paint_generation_id());
 
     auto parent_paintable = child.paintable_box().parent();

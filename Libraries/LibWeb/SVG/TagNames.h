@@ -34,8 +34,10 @@ namespace Web::SVG::TagNames {
     __ENUMERATE_SVG_TAG(desc)           \
     __ENUMERATE_SVG_TAG(foreignObject)  \
     __ENUMERATE_SVG_TAG(linearGradient) \
+    __ENUMERATE_SVG_TAG(marker)         \
     __ENUMERATE_SVG_TAG(mask)           \
     __ENUMERATE_SVG_TAG(metadata)       \
+    __ENUMERATE_SVG_TAG(pattern)        \
     __ENUMERATE_SVG_TAG(radialGradient) \
     __ENUMERATE_SVG_TAG(script)         \
     __ENUMERATE_SVG_TAG(stop)           \

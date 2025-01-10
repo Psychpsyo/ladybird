@@ -29,6 +29,7 @@
 #include <LibWeb/Layout/TableWrapper.h>
 #include <LibWeb/Layout/TextNode.h>
 #include <LibWeb/Layout/Viewport.h>
+#include <LibWeb/Namespace.h>
 #include <LibWeb/Platform/FontPlugin.h>
 
 namespace Web::Layout {
@@ -151,10 +152,54 @@ bool Node::establishes_stacking_context() const
     //       in the CSS specifications where the rules for stacking contexts is described.
     //       That's why the "spec link" here points to MDN.
 
-    if (!has_style())
-        return false;
+    // https://svgwg.org/svg2-draft/render.html#EstablishingStackingContex
+    if (dom_node() && dom_node()->is_element() && static_cast<DOM::Element const&>(*dom_node()).namespace_uri() == Web::Namespace::SVG) {
+        // A new stacking context must be established at an SVG element for its descendants if:
 
-    if (is_svg_box() || is_svg_svg_box())
+        // - it is the root element
+        if (is_root_element())
+            return true;
+
+        // - the element is an outermost svg element, or a ‘foreignObject’, ‘image’, ‘marker’, ‘mask’, ‘pattern’, ‘symbol’ or
+        //   ‘use’ element
+        if (is_svg_svg_box() && static_cast<DOM::Element const&>(*dom_node()).namespace_uri() != Web::Namespace::SVG)
+            return true;
+        if (is_svg_mask_box() || (dom_node()->is_element() && static_cast<DOM::Element const&>(*dom_node()).local_name().is_one_of(SVG::TagNames::foreignObject, SVG::TagNames::image, SVG::TagNames::marker, SVG::TagNames::pattern, SVG::TagNames::symbol)))
+            return true;
+
+        // - the element is an inner ‘svg’ element and the computed value of its overflow property is a value other than
+        //   visible
+        // NOTE: Non-inner SVG elements were dealt with in the last step
+        if (is_svg_svg_box() && (computed_values().overflow_x() != CSS::Overflow::Visible || computed_values().overflow_y() != CSS::Overflow::Visible))
+            return true;
+
+        // - the element is subject to explicit clipping:
+        //   - the clip property applies to the element and it has a computed value other than auto
+        // FIXME: Implement this.
+
+        //   - the clip-path property applies to the element and it has a computed value other than none
+        if (computed_values().clip_path().has_value())
+            return true;
+
+        // the opacity property applies to the element and it has a computed value other than 1
+        if (computed_values().opacity() != 1.0f)
+            return true;
+
+        // the mask property applies to the element and it has a computed value other than none
+        if (computed_values().mask().has_value())
+            return true;
+
+        // the filter property applies to the element and it has a computed value other than none
+        if (!computed_values().filter().is_empty())
+            return true;
+
+        // a property defined in another specification is applied and that property is defined to establish a stacking
+        // context in SVG
+        // FIXME: figure out what these are (if there are any)
+        return false;
+    }
+
+    if (!has_style())
         return false;
 
     // We make a stacking context for the viewport. Painting and hit testing starts from here.
