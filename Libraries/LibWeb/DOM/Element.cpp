@@ -432,8 +432,8 @@ GC::Ptr<Layout::NodeWithStyle> Element::create_layout_node_for_display_type(DOM:
 
     if (display.is_math_inside()) {
         // https://w3c.github.io/mathml-core/#new-display-math-value
-        // MathML elements with a computed display value equal to block math or inline math control box generation
-        // and layout according to their tag name, as described in the relevant sections.
+        // For MathML elements with a computed display value equal to block math or inline math, control box
+        // generation and layout are done according to their tag name, as described in the relevant sections.
         // FIXME: Figure out what kind of node we should make for them. For now, we'll stick with a generic Box.
         return document.heap().allocate<Layout::BlockContainer>(document, element, move(style));
     }
