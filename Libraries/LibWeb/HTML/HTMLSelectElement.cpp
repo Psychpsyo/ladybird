@@ -241,16 +241,21 @@ Vector<GC::Root<HTMLOptionElement>> HTMLSelectElement::list_of_options() const
 void HTMLSelectElement::reset_algorithm()
 {
     update_cached_list_of_options();
+    // The reset algorithm for a select element selectElement is:
 
-    // The reset algorithm for select elements is to go through all the option elements in the element's list of options,
+    // 1. Set selectElement's user validity to false.
+    m_user_validity = false;
+
+    // 2. For each optionElement of selectElement's list of options:
     for (auto const& option_element : m_cached_list_of_options) {
-        // set their selectedness to true if the option element has a selected attribute, and false otherwise,
+        // 1. If optionElement has a selected attribute, then set optionElement's selectedness to true; otherwise set it to false.
         option_element->set_selected_internal(option_element->has_attribute(AttributeNames::selected));
-        // set their dirtiness to false,
+        // 2. Set optionElement's dirtiness to false.
         option_element->m_dirty = false;
-        // and then have the option elements ask for a reset.
-        option_element->ask_for_a_reset();
     }
+
+    // 3. Run the selectedness setting algorithm given selectElement.
+    update_selectedness();
 }
 
 // https://html.spec.whatwg.org/multipage/form-elements.html#dom-select-selectedindex
@@ -379,7 +384,8 @@ void HTMLSelectElement::queue_input_and_change_events()
 {
     // When the user agent is to send select update notifications, queue an element task on the user interaction task source given the select element to run these steps:
     queue_an_element_task(HTML::Task::Source::UserInteraction, [this] {
-        // FIXME: 1. Set the select element's user interacted to true.
+        // 1. Set the select element's user validity to true.
+        m_user_validity = true;
 
         // 2. Fire an event named input at the select element, with the bubbles and composed attributes initialized to true.
         auto input_event = DOM::Event::create(realm(), HTML::EventNames::input);

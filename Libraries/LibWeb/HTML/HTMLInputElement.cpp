@@ -468,7 +468,8 @@ void HTMLInputElement::did_pick_color(Optional<Color> picked_color, ColorPickerU
         if (state == ColorPickerUpdateState::Closed) {
             queue_an_element_task(HTML::Task::Source::UserInteraction, [this] {
                 // given the input element
-                // FIXME: to set its user interacted to true
+                // to set its user validity to true
+                m_user_validity = true;
                 // and fire an event named change at the input element, with the bubbles attribute initialized to true.
                 auto change_event = DOM::Event::create(realm(), HTML::EventNames::change);
                 change_event->set_bubbles(true);
@@ -1214,15 +1215,16 @@ void HTMLInputElement::user_interaction_did_change_input_value()
     // For input elements without a defined input activation behavior, but to which these events apply,
     // and for which the user interface involves both interactive manipulation and an explicit commit action,
     // then when the user changes the element's value, the user agent must queue an element task on the user interaction task source
-    // given the input element to fire an event named input at the input element, with the bubbles and composed attributes initialized to true,
-    // and any time the user commits the change, the user agent must queue an element task on the user interaction task source given the input
-    // element to set its user validity to true and fire an event named change at the input element, with the bubbles attribute initialized to true.
+    // given the input element to fire an event named input at the input element, with the bubbles and composed attributes initialized to true
     queue_an_element_task(HTML::Task::Source::UserInteraction, [this] {
         auto input_event = DOM::Event::create(realm(), HTML::EventNames::input);
         input_event->set_bubbles(true);
         input_event->set_composed(true);
         dispatch_event(*input_event);
     });
+    // and any time the user commits the change, the user agent must queue an element task on the user interaction task source given the input
+    // element to set its user validity to true and fire an event named change at the input element, with the bubbles attribute initialized to true.
+    // FIXME: Does this need to happen here?
 }
 
 void HTMLInputElement::update_slider_shadow_tree_elements()
@@ -1583,7 +1585,8 @@ String HTMLInputElement::value_sanitization_algorithm(String const& value) const
 // https://html.spec.whatwg.org/multipage/input.html#the-input-element:concept-form-reset-control
 void HTMLInputElement::reset_algorithm()
 {
-    // The reset algorithm for input elements is to set the dirty value flag and dirty checkedness flag back to false,
+    // The reset algorithm for input elements is to set its user validity, dirty value flag, and dirty checkedness flag back to false,
+    m_user_validity = false;
     m_dirty_value = false;
     m_dirty_checkedness = false;
 

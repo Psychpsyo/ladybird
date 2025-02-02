@@ -100,6 +100,8 @@ public:
 
     bool can_skip_selectedness_update_for_inserted_option(HTMLOptionElement const&) const;
 
+    void set_user_validity(bool flag) { m_user_validity = flag; }
+
 private:
     HTMLSelectElement(DOM::Document&, DOM::QualifiedName);
 
@@ -132,6 +134,9 @@ private:
     Vector<SelectItem> m_select_items;
     GC::Ptr<DOM::Element> m_inner_text_element;
     GC::Ptr<DOM::Element> m_chevron_icon_element;
+
+    // https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#user-validity
+    bool m_user_validity { false };
 };
 
 }

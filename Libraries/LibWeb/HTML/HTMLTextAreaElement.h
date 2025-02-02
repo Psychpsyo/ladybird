@@ -89,6 +89,7 @@ public:
     virtual WebIDL::ExceptionOr<void> set_relevant_value(String const& value) override;
 
     virtual void set_dirty_value_flag(bool flag) override { m_dirty_value = flag; }
+    void set_user_validity(bool flag) { m_user_validity = flag; }
 
     u32 text_length() const;
 
@@ -156,6 +157,9 @@ private:
 
     // https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#concept-fe-dirty
     bool m_dirty_value { false };
+
+    // https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#user-validity
+    bool m_user_validity { false };
 
     // https://html.spec.whatwg.org/multipage/form-elements.html#concept-textarea-raw-value
     String m_raw_value;

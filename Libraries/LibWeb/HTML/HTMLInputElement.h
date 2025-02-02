@@ -83,8 +83,10 @@ public:
     WebIDL::ExceptionOr<void> set_relevant_value(String const& value) override { return set_value(value); }
 
     virtual void set_dirty_value_flag(bool flag) override { m_dirty_value = flag; }
+    void set_user_validity(bool flag) { m_user_validity = flag; }
 
     void commit_pending_changes();
+    bool has_uncommitted_changes() { return m_has_uncommitted_changes; }
 
     String placeholder() const;
     Optional<String> placeholder_value() const;
@@ -337,6 +339,9 @@ private:
 
     // https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#concept-fe-dirty
     bool m_dirty_value { false };
+
+    // https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#user-validity
+    bool m_user_validity { false };
 
     // https://html.spec.whatwg.org/multipage/input.html#the-input-element:legacy-pre-activation-behavior
     bool m_before_legacy_pre_activation_behavior_checked { false };
