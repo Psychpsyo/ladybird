@@ -86,6 +86,8 @@
 
 namespace Web::DOM {
 
+GC_DEFINE_ALLOCATOR(Element::PseudoElement);
+
 Element::Element(Document& document, DOM::QualifiedName qualified_name)
     : ParentNode(document, NodeType::ELEMENT_NODE)
     , m_qualified_name(move(qualified_name))
@@ -119,15 +121,22 @@ void Element::visit_edges(Cell::Visitor& visitor)
     visitor.visit(m_computed_properties);
     if (m_pseudo_element_data) {
         for (auto& pseudo_element : *m_pseudo_element_data) {
-            visitor.visit(pseudo_element.cascaded_properties);
-            visitor.visit(pseudo_element.computed_properties);
-            visitor.visit(pseudo_element.layout_node);
+            visitor.visit(pseudo_element.value);
         }
     }
     if (m_registered_intersection_observers) {
         for (auto& registered_intersection_observers : *m_registered_intersection_observers)
             visitor.visit(registered_intersection_observers.observer);
     }
+}
+
+void Element::PseudoElement::visit_edges(Cell::Visitor& visitor)
+{
+    Base::visit_edges(visitor);
+
+    visitor.visit(cascaded_properties);
+    visitor.visit(computed_properties);
+    visitor.visit(layout_node);
 }
 
 // https://dom.spec.whatwg.org/#dom-element-getattribute
@@ -1207,9 +1216,9 @@ bool Element::affected_by_hover() const
     }
     if (m_pseudo_element_data) {
         for (auto& pseudo_element : *m_pseudo_element_data) {
-            if (!pseudo_element.computed_properties)
+            if (!pseudo_element.value->computed_properties)
                 continue;
-            if (pseudo_element.computed_properties->did_match_any_hover_rules())
+            if (pseudo_element.value->computed_properties->did_match_any_hover_rules())
                 return true;
         }
     }
@@ -1376,7 +1385,7 @@ bool Element::has_pseudo_elements() const
 {
     if (m_pseudo_element_data) {
         for (auto& pseudo_element : *m_pseudo_element_data) {
-            if (pseudo_element.layout_node)
+            if (pseudo_element.value->layout_node)
                 return true;
         }
     }
@@ -1387,7 +1396,7 @@ void Element::clear_pseudo_element_nodes(Badge<Layout::TreeBuilder>)
 {
     if (m_pseudo_element_data) {
         for (auto& pseudo_element : *m_pseudo_element_data) {
-            pseudo_element.layout_node = nullptr;
+            pseudo_element.value->layout_node = nullptr;
         }
     }
 }
@@ -1396,15 +1405,12 @@ void Element::serialize_pseudo_elements_as_json(JsonArraySerializer<StringBuilde
 {
     if (!m_pseudo_element_data)
         return;
-    for (size_t i = 0; i < m_pseudo_element_data->size(); ++i) {
-        auto& pseudo_element = (*m_pseudo_element_data)[i].layout_node;
-        if (!pseudo_element)
-            continue;
+    for (auto& pseudo_element : m_pseudo_element_data->keys()) {
         auto object = MUST(children_array.add_object());
-        MUST(object.add("name"sv, MUST(String::formatted("::{}", CSS::pseudo_element_name(static_cast<CSS::PseudoElement>(i))))));
+        MUST(object.add("name"sv, MUST(String::formatted("::{}", CSS::pseudo_element_name(pseudo_element)))));
         MUST(object.add("type"sv, "pseudo-element"));
         MUST(object.add("parent-id"sv, unique_id().value()));
-        MUST(object.add("pseudo-element"sv, i));
+        MUST(object.add("pseudo-element"sv, to_underlying(pseudo_element)));
         MUST(object.finish());
     }
 }
@@ -2718,7 +2724,11 @@ Optional<Element::PseudoElement&> Element::get_pseudo_element(CSS::PseudoElement
         return {};
     }
 
-    return m_pseudo_element_data->at(to_underlying(type));
+    auto pseudo_element = m_pseudo_element_data->get(type);
+    if (!pseudo_element.has_value())
+        return {};
+
+    return *(pseudo_element.value());
 }
 
 Element::PseudoElement& Element::ensure_pseudo_element(CSS::PseudoElement type) const
@@ -2728,7 +2738,13 @@ Element::PseudoElement& Element::ensure_pseudo_element(CSS::PseudoElement type) 
 
     VERIFY(CSS::Selector::PseudoElementSelector::is_known_pseudo_element_type(type));
 
-    return m_pseudo_element_data->at(to_underlying(type));
+    if (is_pseudo_element_root(type)) {
+        m_pseudo_element_data->set(type, heap().allocate<PseudoElementTreeNode>());
+    } else {
+        m_pseudo_element_data->set(type, heap().allocate<PseudoElement>());
+    }
+
+    return *(m_pseudo_element_data->get(type).value());
 }
 
 void Element::set_custom_properties(Optional<CSS::PseudoElement> pseudo_element, HashMap<FlyString, CSS::StyleProperty> custom_properties)
