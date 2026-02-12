@@ -32,6 +32,11 @@ enum class LayoutMode {
     IntrinsicSizing,
 };
 
+enum class LayingOutDeferredNode {
+    Yes,
+    No
+};
+
 class WEB_API Node
     : public JS::Cell
     , public TreeNode<Node> {

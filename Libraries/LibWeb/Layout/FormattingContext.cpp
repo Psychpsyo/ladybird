@@ -205,23 +205,28 @@ struct DummyFormattingContext : public FormattingContext {
     virtual void run(AvailableSpace const&) override { }
 };
 
-OwnPtr<FormattingContext> FormattingContext::create_independent_formatting_context_if_needed(LayoutState& state, LayoutMode layout_mode, Box const& child_box)
+OwnPtr<FormattingContext> FormattingContext::create_independent_formatting_context_if_needed(LayoutState& state, LayoutMode layout_mode, Box const& child_box, FormattingContext* parent, LayingOutDeferredNode laying_out_deferred_node)
 {
     auto type = formatting_context_type_created_by_box(child_box);
     if (!type.has_value())
         return nullptr;
 
+    // AD-HOC: Layout-contained nodes cannot be laid out in the same pass as other nodes,
+    //         since we might want to recompute styles before laying out the children.
+    if (laying_out_deferred_node == LayingOutDeferredNode::No && child_box.has_layout_containment())
+        return nullptr;
+
     switch (type.value()) {
     case Type::Block:
-        return make<BlockFormattingContext>(state, layout_mode, as<BlockContainer>(child_box), this);
+        return make<BlockFormattingContext>(state, layout_mode, as<BlockContainer>(child_box), parent);
     case Type::SVG:
-        return make<SVGFormattingContext>(state, layout_mode, child_box, this);
+        return make<SVGFormattingContext>(state, layout_mode, child_box, parent);
     case Type::Flex:
-        return make<FlexFormattingContext>(state, layout_mode, child_box, this);
+        return make<FlexFormattingContext>(state, layout_mode, child_box, parent);
     case Type::Grid:
-        return make<GridFormattingContext>(state, layout_mode, child_box, this);
+        return make<GridFormattingContext>(state, layout_mode, child_box, parent);
     case Type::Table:
-        return make<TableFormattingContext>(state, layout_mode, child_box, this);
+        return make<TableFormattingContext>(state, layout_mode, child_box, parent);
     case Type::InternalReplaced:
         return make<ReplacedFormattingContext>(state, layout_mode, child_box);
     case Type::InternalDummy:
@@ -237,7 +242,7 @@ OwnPtr<FormattingContext> FormattingContext::create_independent_formatting_conte
 
 NonnullOwnPtr<FormattingContext> FormattingContext::create_independent_formatting_context(LayoutState& state, LayoutMode layout_mode, Box const& child_box)
 {
-    if (auto context = create_independent_formatting_context_if_needed(state, layout_mode, child_box))
+    if (auto context = create_independent_formatting_context_if_needed(state, layout_mode, child_box, this))
         return context.release_nonnull();
 
     if (auto child_block_container = as_if<BlockContainer>(child_box))
@@ -267,7 +272,7 @@ OwnPtr<FormattingContext> FormattingContext::layout_inside(Box const& child_box,
     if (!child_box.can_have_children())
         return {};
 
-    auto independent_formatting_context = create_independent_formatting_context_if_needed(m_state, layout_mode, child_box);
+    auto independent_formatting_context = create_independent_formatting_context_if_needed(m_state, layout_mode, child_box, this);
     if (independent_formatting_context)
         independent_formatting_context->run(available_space);
     else
@@ -489,7 +494,7 @@ CSSPixels FormattingContext::compute_table_box_height_inside_table_wrapper(Box c
 
     LayoutState throwaway_state;
 
-    auto context = create_independent_formatting_context_if_needed(throwaway_state, LayoutMode::IntrinsicSizing, box);
+    auto context = create_independent_formatting_context_if_needed(throwaway_state, LayoutMode::IntrinsicSizing, box, this);
     VERIFY(context);
     context->run(m_state.get(box).available_inner_space_or_constraints_from(available_space));
 

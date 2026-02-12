@@ -88,7 +88,7 @@ public:
     CSSPixels compute_width_for_replaced_element(Box const&, AvailableSpace const&) const;
     CSSPixels compute_height_for_replaced_element(Box const&, AvailableSpace const&) const;
 
-    OwnPtr<FormattingContext> create_independent_formatting_context_if_needed(LayoutState&, LayoutMode, Box const& child_box);
+    static OwnPtr<FormattingContext> create_independent_formatting_context_if_needed(LayoutState&, LayoutMode, Box const& child_box, FormattingContext* parent, LayingOutDeferredNode = LayingOutDeferredNode::No);
     NonnullOwnPtr<FormattingContext> create_independent_formatting_context(LayoutState&, LayoutMode, Box const& child_box);
 
     virtual void parent_context_did_dimension_child_root_box() { }

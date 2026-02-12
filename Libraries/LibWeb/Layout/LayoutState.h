@@ -207,6 +207,10 @@ struct LayoutState {
 
     void set_subtree_root(NodeWithStyle const& node) { m_subtree_root = &node; }
 
+    void defer_layout_for_node(Box&);
+    bool has_deferred_nodes() const { return m_deferred_nodes.is_empty(); }
+    void layout_deferred_nodes();
+
     UsedValues& get_mutable(NodeWithStyle const&);
     UsedValues const& get(NodeWithStyle const&) const;
 
@@ -218,7 +222,11 @@ private:
     UsedValues& ensure_used_values_for(NodeWithStyle const&);
     void resolve_relative_positions();
 
+    void layout_deferred_node(Box&);
+
     GC::Ptr<Layout::NodeWithStyle const> m_subtree_root;
+
+    HashTable<GC::Ref<Layout::Box>> m_deferred_nodes;
 };
 
 inline CSSPixels clamp_to_max_dimension_value(CSSPixels value)

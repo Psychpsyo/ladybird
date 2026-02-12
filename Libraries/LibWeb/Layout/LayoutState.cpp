@@ -11,6 +11,7 @@
 #include <LibWeb/DOM/Document.h>
 #include <LibWeb/DOM/ShadowRoot.h>
 #include <LibWeb/Layout/AvailableSpace.h>
+#include <LibWeb/Layout/FormattingContext.h>
 #include <LibWeb/Layout/InlineNode.h>
 #include <LibWeb/Layout/LayoutState.h>
 #include <LibWeb/Layout/Viewport.h>
@@ -32,6 +33,40 @@ LayoutState::UsedValues& LayoutState::get_mutable(NodeWithStyle const& node)
 LayoutState::UsedValues const& LayoutState::get(NodeWithStyle const& node) const
 {
     return const_cast<LayoutState*>(this)->ensure_used_values_for(node);
+}
+
+void LayoutState::defer_layout_for_node(Box& node)
+{
+    m_deferred_nodes.set(node);
+}
+
+void LayoutState::layout_deferred_nodes()
+{
+    auto deferred_nodes = move(m_deferred_nodes);
+    for (auto const& node : deferred_nodes)
+        layout_deferred_node(*node);
+}
+
+void LayoutState::layout_deferred_node(Box& node)
+{
+    set_subtree_root(node);
+
+    // Pre-populate the node itself.
+    if (auto const* paintable = node.paintable_box())
+        populate_from_paintable(node, *paintable);
+
+    auto const& state = get(node);
+    auto content_width = state.content_width();
+    auto content_height = state.content_height();
+
+    auto formatting_context = FormattingContext::create_independent_formatting_context_if_needed(*this, LayoutMode::Normal, node, nullptr, LayingOutDeferredNode::Yes);
+    formatting_context->run(Layout::AvailableSpace(Layout::AvailableSize::make_definite(content_width), Layout::AvailableSize::make_definite(content_height)));
+    commit(node);
+
+    node.for_each_in_inclusive_subtree([](auto& child) {
+        child.reset_needs_layout_update();
+        return TraversalDecision::Continue;
+    });
 }
 
 LayoutState::UsedValues& LayoutState::populate_from_paintable(NodeWithStyle const& node, Painting::PaintableBox const& paintable)
