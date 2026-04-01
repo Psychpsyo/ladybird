@@ -388,7 +388,7 @@ void Navigable::initialize_navigable(GC::Ref<DocumentState> document_state, GC::
     m_id = String::number(next_id++);
 
     // 1. Assert: documentState's document is non-null.
-    // NOTE: DocumentState no longer owns the document; it is passed separately and owned by the Navigable.
+    // AD-HOC: DocumentState doesn't own the document in our implementation; it is instead passed separately and owned by the Navigable.
 
     // 2. Let entry be a new session history entry, with
     GC::Ref<SessionHistoryEntry> entry = *heap().allocate<SessionHistoryEntry>();
