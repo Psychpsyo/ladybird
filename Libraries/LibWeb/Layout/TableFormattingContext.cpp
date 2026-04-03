@@ -9,6 +9,7 @@
 #include <LibWeb/HTML/HTMLTableColElement.h>
 #include <LibWeb/Layout/BlockFormattingContext.h>
 #include <LibWeb/Layout/Box.h>
+#include <LibWeb/Layout/Fragmentation.h>
 #include <LibWeb/Layout/InlineFormattingContext.h>
 #include <LibWeb/Layout/TableFormattingContext.h>
 
@@ -47,7 +48,7 @@ static inline bool is_table_column(Box const& box)
     return box.display().is_table_column();
 }
 
-CSSPixels TableFormattingContext::run_caption_layout(CSS::CaptionSide phase, AvailableSpace const& caption_available_space)
+CSSPixels TableFormattingContext::run_caption_layout(CSS::CaptionSide phase, AvailableSpace const& caption_available_space, Optional<FragmentationContext const&> fragmentation_context)
 {
     CSSPixels caption_height = 0;
     for (auto* child = table_box().first_child(); child; child = child->next_sibling()) {
@@ -58,7 +59,7 @@ CSSPixels TableFormattingContext::run_caption_layout(CSS::CaptionSide phase, Ava
         // The caption boxes are principal block-level boxes that retain their own content, padding, margin, and border areas,
         // and are rendered as normal block boxes inside the table wrapper box, as described in https://www.w3.org/TR/CSS22/tables.html#model
         if (auto caption_context = create_independent_formatting_context_if_needed(m_state, m_layout_mode, child_box)) {
-            caption_context->run(caption_available_space);
+            caption_context->run(caption_available_space, fragmentation_context);
             // FIXME: If caption only has inline children, BlockFormattingContext doesn't resolve the vertical metrics.
             //        We need to do it manually here.
             if (auto* block_context = as_if<BlockFormattingContext>(caption_context.ptr())) {
@@ -1751,7 +1752,7 @@ void TableFormattingContext::parent_context_did_dimension_child_root_box()
     layout_absolutely_positioned_children();
 }
 
-void TableFormattingContext::run(AvailableSpace const& available_space)
+void TableFormattingContext::run(AvailableSpace const& available_space, Optional<FragmentationContext const&> fragmentation_context)
 {
     FORMATTING_CONTEXT_TRACE();
     m_available_space = available_space;
@@ -1767,7 +1768,7 @@ void TableFormattingContext::run(AvailableSpace const& available_space)
         AvailableSize::make_definite(clamp_to_max_dimension_value(table_state.border_box_width())),
         available_space.height);
 
-    auto total_captions_height = run_caption_layout(CSS::CaptionSide::Top, caption_available_space);
+    auto total_captions_height = run_caption_layout(CSS::CaptionSide::Top, caption_available_space, fragmentation_context);
 
     // Distribute the width of the table among columns.
     distribute_width_to_columns();
@@ -1781,7 +1782,7 @@ void TableFormattingContext::run(AvailableSpace const& available_space)
 
     m_state.get_mutable(table_box()).set_content_height(m_table_height);
 
-    total_captions_height += run_caption_layout(CSS::CaptionSide::Bottom, caption_available_space);
+    total_captions_height += run_caption_layout(CSS::CaptionSide::Bottom, caption_available_space, fragmentation_context);
 
     // Table captions are positioned between the table margins and its borders (outside the grid box borders) as described in
     // https://www.w3.org/TR/css-tables-3/#bounding-box-assignment

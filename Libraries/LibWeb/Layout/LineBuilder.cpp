@@ -24,7 +24,7 @@ LineBuilder::LineBuilder(InlineFormattingContext& context, LayoutState& layout_s
     begin_new_line(false);
 }
 
-void LineBuilder::break_line(ForcedBreak forced_break, Optional<CSSPixels> next_item_width)
+void LineBuilder::break_line(ForcedBreak forced_break, Optional<FragmentationContext const&> fragmentation_context, Optional<CSSPixels> next_item_width)
 {
     // FIXME: Respect inline direction.
 
@@ -33,7 +33,7 @@ void LineBuilder::break_line(ForcedBreak forced_break, Optional<CSSPixels> next_
     last_line_box.m_has_forced_break = forced_break == ForcedBreak::Yes;
 
     m_last_line_needs_update = true;
-    update_last_line();
+    update_last_line(fragmentation_context);
 
     size_t break_count = 0;
     bool floats_intrude_at_current_y = false;
@@ -197,7 +197,7 @@ bool LineBuilder::should_break(CSSPixels next_item_width)
     return (current_line_width + next_item_width) > m_available_width_for_current_line;
 }
 
-void LineBuilder::update_last_line()
+void LineBuilder::update_last_line(Optional<FragmentationContext const&> fragmentation_context)
 {
     if (!m_last_line_needs_update)
         return;
@@ -257,6 +257,27 @@ void LineBuilder::update_last_line()
         }
     }
 
+    auto line_height = m_context.containing_block().computed_values().line_height();
+
+    CSSPixels inline_fragmentainer_offset = 0;
+    CSSPixels block_fragmentainer_offset = 0;
+    if (fragmentation_context.has_value()) {
+        FragmentationContext const* context = &fragmentation_context.value();
+
+        // FIXME: Block doesn't always mean Y-axis and inline doesn't always mean X-axis, so account for writing mode.
+        auto fragmented_flow_block_offset = m_context.content_box_rect_in_ancestor_coordinate_space(
+                                                         m_layout_state.get(m_context.containing_block()), context->root())
+                                                .y();
+
+        auto remaining_fragmentainer_extent = context->remaining_fragmentainer_extent_at(fragmented_flow_block_offset + m_current_block_offset);
+        if (remaining_fragmentainer_extent < line_height) {
+            m_current_block_offset += remaining_fragmentainer_extent;
+        }
+
+        inline_fragmentainer_offset = context->fragmentainer_x_offset_at(fragmented_flow_block_offset + m_current_block_offset);
+        block_fragmentainer_offset = context->fragmentainer_y_offset_at(fragmented_flow_block_offset + m_current_block_offset);
+    }
+
     auto strut_baseline = [&] {
         auto& font = m_context.containing_block().first_available_font();
         auto const line_height = m_context.containing_block().computed_values().line_height();
@@ -306,13 +327,13 @@ void LineBuilder::update_last_line()
 
     // Start with the "strut", an imaginary zero-width box at the start of each line box.
     auto strut_top = m_current_block_offset;
-    auto strut_bottom = m_current_block_offset + m_context.containing_block().computed_values().line_height();
+    auto strut_bottom = m_current_block_offset + line_height;
 
     CSSPixels uppermost_box_top = strut_top;
     CSSPixels lowermost_box_bottom = strut_bottom;
 
     for (auto& fragment : line_box.fragments()) {
-        CSSPixels new_fragment_inline_offset = inline_offset + fragment.inline_offset();
+        CSSPixels new_fragment_inline_offset = inline_offset + inline_fragmentainer_offset + fragment.inline_offset();
         CSSPixels new_fragment_block_offset = 0;
 
         auto block_offset_value_for_alignment = [&](CSS::VerticalAlign vertical_align) {
@@ -374,7 +395,7 @@ void LineBuilder::update_last_line()
         }
 
         fragment.set_inline_offset(new_fragment_inline_offset);
-        fragment.set_block_offset(floor(new_fragment_block_offset) + block_offset);
+        fragment.set_block_offset(floor(new_fragment_block_offset) + block_offset + block_fragmentainer_offset);
 
         CSSPixels top_of_inline_box = 0;
         CSSPixels bottom_of_inline_box = 0;
@@ -407,7 +428,7 @@ void LineBuilder::update_last_line()
     // 3. The line box height is the distance between the uppermost box top and the lowermost box bottom.
     line_box.m_block_length = lowermost_box_bottom - uppermost_box_top;
 
-    line_box.m_bottom = m_current_block_offset + line_box.m_block_length;
+    line_box.m_bottom = m_current_block_offset + block_fragmentainer_offset + line_box.m_block_length;
     line_box.m_baseline = line_box_baseline;
 }
 
