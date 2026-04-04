@@ -244,6 +244,13 @@ struct LayoutState {
             return m_static_position_rect->aligned_position_for_box_with_size({ margin_box_width(), margin_box_height() });
         }
 
+        // https://drafts.csswg.org/css-break/#box-fragment
+        struct BoxFragment {
+            CSSPixelPoint offset;
+            CSSPixels size_in_fragmentation_direction;
+        };
+        Optional<Vector<BoxFragment>> box_fragments() const { return m_box_fragments; }
+
     private:
         friend struct LayoutState;
 
@@ -279,6 +286,9 @@ struct LayoutState {
         RefPtr<CSS::GridTrackSizeListStyleValue const> m_grid_template_rows;
 
         Optional<StaticPositionRect> m_static_position_rect;
+
+        // If this has a value, this box is fragmented into the given fragments.
+        Optional<Vector<BoxFragment>> m_box_fragments;
     };
 
     LayoutState() = default;
