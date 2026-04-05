@@ -68,6 +68,13 @@ void ImagePaintable::paint(DisplayListRecordingContext& context, PaintPhase phas
 
     if (phase == PaintPhase::Foreground) {
         auto image_rect = absolute_rect();
+        if (unfragmented_content_size().has_value()) {
+            image_rect.set_size(unfragmented_content_size().value());
+        }
+        if (fragmentation_offset().has_value()) {
+            image_rect.set_x(image_rect.x() - fragmentation_offset().value().x());
+            image_rect.set_y(image_rect.y() - fragmentation_offset().value().y());
+        }
         auto image_rect_device_pixels = context.rounded_device_rect(image_rect);
         if (m_renders_as_alt_text) {
             if (!m_alt_text.is_empty()) {
