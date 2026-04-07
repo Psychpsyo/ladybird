@@ -339,8 +339,8 @@ void LineBuilder::update_last_line(Optional<FragmentationContext&> fragmentation
     }();
 
     // Start with the "strut", an imaginary zero-width box at the start of each line box.
-    auto strut_top = m_current_block_offset;
-    auto strut_bottom = m_current_block_offset + line_height;
+    auto strut_top = m_current_block_offset + block_fragmentainer_offset;
+    auto strut_bottom = m_current_block_offset + block_fragmentainer_offset + line_height;
 
     CSSPixels uppermost_box_top = strut_top;
     CSSPixels lowermost_box_bottom = strut_bottom;
